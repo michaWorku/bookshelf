@@ -1,6 +1,6 @@
-// 🐨 we're going to use React hooks in here now so we'll need React
+import * as React from 'react'
 import {useQuery, queryCache} from 'react-query'
-// 🐨 get AuthContext from context/auth-context
+import {AuthContext} from 'context/auth-context'
 import {client} from './api-client'
 import bookPlaceholderSvg from 'assets/book-placeholder.svg'
 
@@ -18,8 +18,6 @@ const loadingBooks = Array.from({length: 10}, (v, index) => ({
   ...loadingBook,
 }))
 
-// 🦉 note that this is *not* treated as a hook and is instead called by other hooks
-// So we'll continue to accept the user here.
 const getBookSearchConfig = (query, user) => ({
   queryKey: ['bookSearch', {query}],
   queryFn: () =>
@@ -35,16 +33,14 @@ const getBookSearchConfig = (query, user) => ({
   },
 })
 
-// 💣 remove the user argument here
-function useBookSearch(query, user) {
-  // 🐨 get the user from React.useContext(AuthContext)
+function useBookSearch(query) {
+  const {user} = React.useContext(AuthContext)
   const result = useQuery(getBookSearchConfig(query, user))
   return {...result, books: result.data ?? loadingBooks}
 }
 
-// 💣 remove the user argument here
-function useBook(bookId, user) {
-  // 🐨 get the user from React.useContext(AuthContext)
+function useBook(bookId) {
+  const {user} = React.useContext(AuthContext)
   const {data} = useQuery({
     queryKey: ['book', {bookId}],
     queryFn: () =>

@@ -9,9 +9,11 @@ import {useBookSearch, refetchBookSearchQuery} from 'utils/books'
 import * as colors from 'styles/colors'
 import {BookRow} from 'components/book-row'
 import {BookListUL, Spinner, Input} from 'components/lib'
+import { AuthContext } from 'context/auth-context'
 
 // 💣 remove the user prop here
-function DiscoverBooksScreen({user}) {
+function DiscoverBooksScreen() {
+  const {user} = React.useContext(AuthContext)
   const [query, setQuery] = React.useState('')
   const [queried, setQueried] = React.useState(false)
   // 💣 remove the user argument here
