@@ -1,72 +1,88 @@
-import * as React from 'react'
-import {useQuery, queryCache} from 'react-query'
-import {useAuth} from 'context/auth-context'
-import {client} from './api-client'
-import bookPlaceholderSvg from 'assets/book-placeholder.svg'
+import {useQuery, useMutation, queryCache} from 'react-query'
+import {useClient} from 'context/auth-context'
+import {setQueryDataForBook} from './books'
 
-const loadingBook = {
-  title: 'Loading...',
-  author: 'loading...',
-  coverImageUrl: bookPlaceholderSvg,
-  publisher: 'Loading Publishing',
-  synopsis: 'Loading...',
-  loadingBook: true,
-}
-
-const loadingBooks = Array.from({length: 10}, (v, index) => ({
-  id: `loading-book-${index}`,
-  ...loadingBook,
-}))
-
-const getBookSearchConfig = (query, user) => ({
-  queryKey: ['bookSearch', {query}],
-  queryFn: () =>
-    client(`books?query=${encodeURIComponent(query)}`, {
-      token: user.token,
-    }).then(data => data.books),
-  config: {
-    onSuccess(books) {
-      for (const book of books) {
-        setQueryDataForBook(book)
-      }
-    },
-  },
-})
-
-function useBookSearch(query) {
-  const {user} = useAuth()
-  const result = useQuery(getBookSearchConfig(query, user))
-  return {...result, books: result.data ?? loadingBooks}
-}
-
-function useBook(bookId) {
-  const {user} = useAuth()
+function useListItems() {
+  const client = useClient()
   const {data} = useQuery({
-    queryKey: ['book', {bookId}],
-    queryFn: () =>
-      client(`books/${bookId}`, {token: user.token}).then(data => data.book),
+    queryKey: 'list-items',
+    queryFn: () => client(`list-items`).then(data => data.listItems),
+    config: {
+      onSuccess: async listItems => {
+        for (const listItem of listItems) {
+          setQueryDataForBook(listItem.book)
+        }
+      },
+    },
   })
-  return data ?? loadingBook
+  return data ?? []
 }
 
-function useRefetchBookSearchQuery() {
-  const {user} = useAuth()
-  return React.useCallback(
-    async function refetchBookSearchQuery() {
-      queryCache.removeQueries('bookSearch')
-      await queryCache.prefetchQuery(getBookSearchConfig('', user))
+function useListItem(bookId) {
+  const listItems = useListItems()
+  return listItems.find(li => li.bookId === bookId) ?? null
+}
+
+const defaultMutationOptions = {
+  onError: (err, variables, recover) =>
+    typeof recover === 'function' ? recover() : null,
+  onSettled: () => queryCache.invalidateQueries('list-items'),
+}
+
+function useUpdateListItem(options) {
+  const client = useClient()
+  return useMutation(
+    updates =>
+      client(`list-items/${updates.id}`, {
+        method: 'PUT',
+        data: updates,
+      }),
+    {
+      onMutate(newItem) {
+        const previousItems = queryCache.getQueryData('list-items')
+
+        queryCache.setQueryData('list-items', old => {
+          return old.map(item => {
+            return item.id === newItem.id ? {...item, ...newItem} : item
+          })
+        })
+
+        return () => queryCache.setQueryData('list-items', previousItems)
+      },
+      ...defaultMutationOptions,
+      ...options,
     },
-    [user],
   )
 }
 
-const bookQueryConfig = {
-  staleTime: 1000 * 60 * 60,
-  cacheTime: 1000 * 60 * 60,
+function useRemoveListItem(options) {
+  const client = useClient()
+  return useMutation(({id}) => client(`list-items/${id}`, {method: 'DELETE'}), {
+    onMutate(removedItem) {
+      const previousItems = queryCache.getQueryData('list-items')
+
+      queryCache.setQueryData('list-items', old => {
+        return old.filter(item => item.id !== removedItem.id)
+      })
+
+      return () => queryCache.setQueryData('list-items', previousItems)
+    },
+    ...defaultMutationOptions,
+  })
 }
 
-function setQueryDataForBook(book) {
-  queryCache.setQueryData(['book', {bookId: book.id}], book, bookQueryConfig)
+function useCreateListItem(options) {
+  const client = useClient()
+  return useMutation(({bookId}) => client(`list-items`, {data: {bookId}}), {
+    ...defaultMutationOptions,
+    ...options,
+  })
 }
 
-export {useBook, useBookSearch, useRefetchBookSearchQuery, setQueryDataForBook}
+export {
+  useListItem,
+  useListItems,
+  useUpdateListItem,
+  useRemoveListItem,
+  useCreateListItem,
+}
