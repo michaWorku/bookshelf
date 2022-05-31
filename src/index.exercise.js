@@ -5,8 +5,6 @@ import {createRoot} from 'react-dom/client'
 import {ReactQueryConfigProvider} from 'react-query'
 import {App} from './app'
 
-// ignore the rootRef in this file. I'm just doing it here to make
-// the tests I write to check your work easier.
 const queryConfig = {
   queries: {
     useErrorBoundary: true,
@@ -19,12 +17,15 @@ const queryConfig = {
   },
 }
 
+// ignore the rootRef in this file. I'm just doing it here to make
+// the tests I write to check your work easier.
 export const rootRef = {}
 loadDevTools(() => {
   const root = createRoot(document.getElementById('root'))
   root.render(
     <ReactQueryConfigProvider config={queryConfig}>
       <App />
-    </ReactQueryConfigProvider>)
+    </ReactQueryConfigProvider>,
+  )
   rootRef.current = root
 })
