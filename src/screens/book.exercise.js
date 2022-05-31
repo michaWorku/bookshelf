@@ -15,11 +15,9 @@ import {Textarea} from 'components/lib'
 import {Rating} from 'components/rating'
 import {StatusButtons} from 'components/status-buttons'
 
-
 function BookScreen({user}) {
   const {bookId} = useParams()
   const book = useBook(bookId, user)
-
   const listItem = useListItem(user, bookId)
 
   const {title, author, coverImageUrl, publisher, synopsis} = book

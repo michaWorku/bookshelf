@@ -16,7 +16,7 @@ const loadingBooks = Array.from({length: 10}, (v, index) => ({
   ...loadingBook,
 }))
 
-const useBookSearch =(query, user) =>{
+function useBookSearch(query, user) {
   const result = useQuery({
     queryKey: ['bookSearch', {query}],
     queryFn: () =>
@@ -27,7 +27,7 @@ const useBookSearch =(query, user) =>{
   return {...result, books: result.data ?? loadingBooks}
 }
 
-const useBook = (bookId, user) => {
+function useBook(bookId, user) {
   const {data} = useQuery({
     queryKey: ['book', {bookId}],
     queryFn: () =>
