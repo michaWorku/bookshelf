@@ -71,18 +71,51 @@ test('adds auth token when a token is provided', async () => {
 
   expect(request.headers.get('Authorization')).toBe(`Bearer ${token}`)
 })
-test.todo('allows for config overrides')
+//  test.todo('allows for config overrides')
 // 🐨 do a very similar setup to the previous test
 // 🐨 create a custom config that specifies properties like "mode" of "cors" and a custom header
 // 🐨 call the client with the endpoint and the custom config
 // 🐨 verify the request had the correct properties
+test('allows for config overrides', async () => {
+  let request
+  const endpoint = 'test-endpoint'
+  const mockResult = {mockValue: 'VALUE'}
+  server.use(
+    rest.put(`${apiURL}/${endpoint}`, async (req, res, ctx) => {
+      request = req
+      return res(ctx.json(mockResult))
+    }),
+  )
 
-test.todo(
-  'when data is provided, it is stringified and the method defaults to POST',
-)
+  const customConfig = {
+    method: 'PUT',
+    headers: {'Content-Type': 'fake-type'},
+  }
+
+  await client(endpoint, customConfig)
+
+  expect(request.headers.get('Content-Type')).toBe(
+    customConfig.headers['Content-Type'],
+  )
+})
+// test.todo(
+//   'when data is provided, it is stringified and the method defaults to POST',
+// )
 // 🐨 create a mock data object
 // 🐨 create a server handler very similar to the previous ones to handle the post request
 //    💰 Use rest.post instead of rest.get like we've been doing so far
 // 🐨 call client with an endpoint and an object with the data
 //    💰 client(endpoint, {data})
 // 🐨 verify the request.body is equal to the mock data object you passed
+test('when data is provided, it is stringified and the method defaults to POST', async () => {
+  const endpoint = 'test-endpoint'
+  server.use(
+    rest.post(`${apiURL}/${endpoint}`, async (req, res, ctx) => {
+      return res(ctx.json(req.body))
+    }),
+  )
+  const data = {a: 'b'}
+  const result = await client(endpoint, {data})
+
+  expect(result).toEqual(data)
+})
