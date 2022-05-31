@@ -1,96 +1,72 @@
 import * as React from 'react'
-import {useQuery, useMutation, queryCache} from 'react-query'
-import {AuthContext} from 'context/auth-context'
-import {setQueryDataForBook} from './books'
+import {useQuery, queryCache} from 'react-query'
+import {useAuth} from 'context/auth-context'
 import {client} from './api-client'
+import bookPlaceholderSvg from 'assets/book-placeholder.svg'
 
-function useListItems() {
-  const {user} = React.useContext(AuthContext)
+const loadingBook = {
+  title: 'Loading...',
+  author: 'loading...',
+  coverImageUrl: bookPlaceholderSvg,
+  publisher: 'Loading Publishing',
+  synopsis: 'Loading...',
+  loadingBook: true,
+}
+
+const loadingBooks = Array.from({length: 10}, (v, index) => ({
+  id: `loading-book-${index}`,
+  ...loadingBook,
+}))
+
+const getBookSearchConfig = (query, user) => ({
+  queryKey: ['bookSearch', {query}],
+  queryFn: () =>
+    client(`books?query=${encodeURIComponent(query)}`, {
+      token: user.token,
+    }).then(data => data.books),
+  config: {
+    onSuccess(books) {
+      for (const book of books) {
+        setQueryDataForBook(book)
+      }
+    },
+  },
+})
+
+function useBookSearch(query) {
+  const {user} = useAuth()
+  const result = useQuery(getBookSearchConfig(query, user))
+  return {...result, books: result.data ?? loadingBooks}
+}
+
+function useBook(bookId) {
+  const {user} = useAuth()
   const {data} = useQuery({
-    queryKey: 'list-items',
+    queryKey: ['book', {bookId}],
     queryFn: () =>
-      client(`list-items`, {token: user.token}).then(data => data.listItems),
-    config: {
-      onSuccess: async listItems => {
-        for (const listItem of listItems) {
-          setQueryDataForBook(listItem.book)
-        }
-      },
-    },
+      client(`books/${bookId}`, {token: user.token}).then(data => data.book),
   })
-  return data ?? []
+  return data ?? loadingBook
 }
 
-function useListItem(bookId) {
-  const listItems = useListItems()
-  return listItems.find(li => li.bookId === bookId) ?? null
-}
-
-const defaultMutationOptions = {
-  onError: (err, variables, recover) =>
-    typeof recover === 'function' ? recover() : null,
-  onSettled: () => queryCache.invalidateQueries('list-items'),
-}
-
-function useUpdateListItem(options) {
-  const {user} = React.useContext(AuthContext)
-  return useMutation(
-    updates =>
-      client(`list-items/${updates.id}`, {
-        method: 'PUT',
-        data: updates,
-        token: user.token,
-      }),
-    {
-      onMutate(newItem) {
-        const previousItems = queryCache.getQueryData('list-items')
-
-        queryCache.setQueryData('list-items', old => {
-          return old.map(item => {
-            return item.id === newItem.id ? {...item, ...newItem} : item
-          })
-        })
-
-        return () => queryCache.setQueryData('list-items', previousItems)
-      },
-      ...defaultMutationOptions,
-      ...options,
+function useRefetchBookSearchQuery() {
+  const {user} = useAuth()
+  return React.useCallback(
+    async function refetchBookSearchQuery() {
+      queryCache.removeQueries('bookSearch')
+      await queryCache.prefetchQuery(getBookSearchConfig('', user))
     },
+    [user],
   )
 }
 
-function useRemoveListItem(options) {
-  const {user} = React.useContext(AuthContext)
-  return useMutation(
-    ({id}) => client(`list-items/${id}`, {method: 'DELETE', token: user.token}),
-    {
-      onMutate(removedItem) {
-        const previousItems = queryCache.getQueryData('list-items')
-
-        queryCache.setQueryData('list-items', old => {
-          return old.filter(item => item.id !== removedItem.id)
-        })
-
-        return () => queryCache.setQueryData('list-items', previousItems)
-      },
-      ...defaultMutationOptions,
-      ...options,
-    },
-  )
+const bookQueryConfig = {
+  staleTime: 1000 * 60 * 60,
+  cacheTime: 1000 * 60 * 60,
 }
 
-function useCreateListItem(options) {
-  const {user} = React.useContext(AuthContext)
-  return useMutation(
-    ({bookId}) => client(`list-items`, {data: {bookId}, token: user.token}),
-    {...defaultMutationOptions, ...options},
-  )
+function setQueryDataForBook(book) {
+  queryCache.setQueryData(['book', {bookId: book.id}], book, bookQueryConfig)
 }
 
-export {
-  useListItem,
-  useListItems,
-  useUpdateListItem,
-  useRemoveListItem,
-  useCreateListItem,
-}
+export {useBook, useBookSearch, useRefetchBookSearchQuery, setQueryDataForBook}
